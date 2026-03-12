@@ -161,3 +161,58 @@ pub fn notes_info_query_request(
 ) -> Request(String) {
   make_request(config, "notesInfo", [#("query", json.string(query))])
 }
+
+pub type MediaFileUpload {
+  MediaFileUpload(
+    filename: String,
+    source: MediaFileSource,
+    delete_existing: Bool,
+  )
+}
+
+/// The source for a media file that can be added to an Anki deck.
+pub type MediaFileSource {
+  Base64Data(String)
+  Path(String)
+  Url(String)
+}
+
+/// Stores a file with the specified base64-encoded contents inside the media folder.
+///
+/// Alternatively you can specify a absolute file path, or a url from where the
+/// file shell be downloaded.
+///
+/// To prevent Anki from removing files not used by any cards (e.g. for
+/// configuration files), prefix the filename with an underscore. These files
+/// are still synchronized to AnkiWeb.
+///
+/// Any existing file with the same name is deleted by default.
+///
+/// Set deleteExisting to false to prevent that by letting Anki give the new
+/// file a non-conflicting name.
+///
+pub fn store_media_file_request(
+  config: Configuration,
+  media_file: MediaFileUpload,
+) -> Request(String) {
+  let MediaFileUpload(filename:, source:, delete_existing:) = media_file
+
+  let source_param = case source {
+    Base64Data(data) -> #("data", json.string(data))
+    Path(path) -> #("path", json.string(path))
+    Url(url) -> #("url", json.string(url))
+  }
+
+  make_request(config, "storeMediaFile", [
+    #("filename", json.string(filename)),
+    #("deleteExisting", json.bool(delete_existing)),
+    source_param,
+  ])
+}
+
+/// Parses the response for a storeMediaFile request.
+pub fn store_media_file_response(
+  response: Response(String),
+) -> Result(String, ActionError) {
+  handle_response(response, decode.string)
+}
