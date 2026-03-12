@@ -4,6 +4,7 @@ import gleam/http
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response}
 import gleam/json.{type Json}
+import gleam/list
 
 pub type Configuration {
   Configuration(host: String, port: Int)
@@ -162,19 +163,74 @@ pub fn notes_info_query_request(
   make_request(config, "notesInfo", [#("query", json.string(query))])
 }
 
-pub type MediaFileUpload {
-  MediaFileUpload(
-    filename: String,
-    source: MediaFileSource,
-    delete_existing: Bool,
-  )
-}
-
 /// The source for a media file that can be added to an Anki deck.
 pub type MediaFileSource {
   Base64Data(String)
   Path(String)
   Url(String)
+}
+
+pub type NoteMediaFile {
+  NewNoteMediaFile(
+    filename: String,
+    source: MediaFileSource,
+    fields: List(String),
+  )
+}
+
+pub type Note {
+  NewNote(
+    deck_name: String,
+    model_name: String,
+    fields: Dict(String, String),
+    tags: List(String),
+    audio: List(NoteMediaFile),
+    video: List(NoteMediaFile),
+    picture: List(NoteMediaFile),
+  )
+}
+
+fn encode_note_media_file(file: NoteMediaFile) -> Json {
+  let source_param = media_file_source_parameter(file.source)
+  json.object([
+    #("filename", json.string(file.filename)),
+    #("fields", json.preprocessed_array(list.map(file.fields, json.string))),
+    source_param,
+  ])
+}
+
+fn media_file_source_parameter(source: MediaFileSource) -> #(String, Json) {
+  case source {
+    Base64Data(data) -> #("data", json.string(data))
+    Path(path) -> #("path", json.string(path))
+    Url(url) -> #("url", json.string(url))
+  }
+}
+
+fn encode_note(note: Note) -> Json {
+  let fields_json =
+    dict.to_list(note.fields)
+    |> list.map(fn(pair) { #(pair.0, json.string(pair.1)) })
+    |> json.object
+
+  json.object([
+    #("deckName", json.string(note.deck_name)),
+    #("modelName", json.string(note.model_name)),
+    #("fields", fields_json),
+    #("tags", json.preprocessed_array(list.map(note.tags, json.string))),
+    #(
+      "audio",
+      json.preprocessed_array(list.map(note.audio, encode_note_media_file)),
+    ),
+    #(
+      "video",
+      json.preprocessed_array(list.map(note.video, encode_note_media_file)),
+    ),
+    #(
+      "picture",
+      json.preprocessed_array(list.map(note.picture, encode_note_media_file)),
+    ),
+  ])
 }
 
 /// Stores a file with the specified base64-encoded contents inside the media folder.
@@ -193,20 +249,14 @@ pub type MediaFileSource {
 ///
 pub fn store_media_file_request(
   config: Configuration,
-  media_file: MediaFileUpload,
+  filename: String,
+  source: MediaFileSource,
+  delete_existing: Bool,
 ) -> Request(String) {
-  let MediaFileUpload(filename:, source:, delete_existing:) = media_file
-
-  let source_param = case source {
-    Base64Data(data) -> #("data", json.string(data))
-    Path(path) -> #("path", json.string(path))
-    Url(url) -> #("url", json.string(url))
-  }
-
   make_request(config, "storeMediaFile", [
     #("filename", json.string(filename)),
     #("deleteExisting", json.bool(delete_existing)),
-    source_param,
+    media_file_source_parameter(source),
   ])
 }
 
@@ -215,4 +265,15 @@ pub fn store_media_file_response(
   response: Response(String),
 ) -> Result(String, ActionError) {
   handle_response(response, decode.string)
+}
+
+/// Creates a note using the given deck and model, with the provided field values and tags.
+/// Returns the identifier of the created note created on success.
+pub fn add_note_request(config: Configuration, note: Note) -> Request(String) {
+  make_request(config, "addNote", [#("note", encode_note(note))])
+}
+
+/// Parses the response for an addNote request.
+pub fn add_note_response(response: Response(String)) -> Result(Int, ActionError) {
+  handle_response(response, decode.int)
 }
