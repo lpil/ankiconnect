@@ -7,12 +7,14 @@ import gleam/int
 import gleam/list
 
 pub fn main() {
-  let configuration = ankiconnect.default_configuration()
+  let assert Ok(response) = ankiconnect.deck_names_request() |> httpc.send
+  let assert Ok(decks) = ankiconnect.deck_names_response(response)
+  echo decks
+
   let deck = "test-deck-plz-ignore"
 
   let _ =
-    configuration
-    |> ankiconnect.add_note_request(
+    ankiconnect.add_note_request(
       ankiconnect.NewNote(
         deck_name: deck,
         model_name: "Basic (and reversed card)",
@@ -23,13 +25,7 @@ pub fn main() {
         tags: ["tag1", "tag2"],
         audio: [],
         video: [],
-        picture: [
-          ankiconnect.NewNoteMediaFile(
-            filename: "wibble",
-            source: ankiconnect.Path("/Users/louis/Desktop/blah.png"),
-            fields: ["Front"],
-          ),
-        ],
+        picture: [],
       ),
     )
     |> assert_send
@@ -37,8 +33,7 @@ pub fn main() {
     |> echo
 
   let assert Ok(notes) =
-    configuration
-    |> ankiconnect.notes_info_query_request("deck:" <> deck)
+    ankiconnect.notes_info_query_request("deck:" <> deck)
     |> assert_send
     |> ankiconnect.notes_info_response
 

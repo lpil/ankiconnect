@@ -6,10 +6,6 @@ import gleam/http/response.{type Response}
 import gleam/json.{type Json}
 import gleam/list
 
-pub type Configuration {
-  Configuration(host: String, port: Int)
-}
-
 pub type ActionError {
   AnkiActionFailed(String)
   FailedToDecodeResponse(json.DecodeError)
@@ -28,12 +24,7 @@ pub type NoteInfo {
   )
 }
 
-pub fn default_configuration() -> Configuration {
-  Configuration(host: "localhost", port: 8765)
-}
-
 fn make_request(
-  config: Configuration,
   action: String,
   parameters: List(#(String, Json)),
 ) -> Request(String) {
@@ -47,8 +38,8 @@ fn make_request(
   request.new()
   |> request.set_scheme(http.Http)
   |> request.set_method(http.Post)
-  |> request.set_host(config.host)
-  |> request.set_port(config.port)
+  |> request.set_host("localhost")
+  |> request.set_port(8765)
   |> request.set_body(json.to_string(payload))
   |> request.prepend_header("content-type", "application/json")
 }
@@ -68,8 +59,8 @@ fn handle_response(
 }
 
 /// Gets the complete list of deck names for the current user. 
-pub fn deck_names_request(config: Configuration) -> Request(String) {
-  make_request(config, "deckNames", [])
+pub fn deck_names_request() -> Request(String) {
+  make_request("deckNames", [])
 }
 
 /// Parse the response for the deck names request.
@@ -80,11 +71,8 @@ pub fn deck_names_response(
 }
 
 /// Returns the matching card IDs for a query.
-pub fn find_cards_request(
-  config: Configuration,
-  query: String,
-) -> Request(String) {
-  make_request(config, "findCards", [#("query", json.string(query))])
+pub fn find_cards_request(query: String) -> Request(String) {
+  make_request("findCards", [#("query", json.string(query))])
 }
 
 /// Parses the response for a findCards request.
@@ -95,8 +83,8 @@ pub fn find_cards_response(
 }
 
 /// Gets the complete list of deck names and their respective IDs for the current user.
-pub fn deck_names_and_ids_request(config: Configuration) -> Request(String) {
-  make_request(config, "deckNamesAndIds", [])
+pub fn deck_names_and_ids_request() -> Request(String) {
+  make_request("deckNamesAndIds", [])
 }
 
 /// Parses the response for a deckNamesAndIds request.
@@ -107,11 +95,8 @@ pub fn deck_names_and_ids_response(
 }
 
 /// Returns an array of note IDs for a given query.
-pub fn find_notes_request(
-  config: Configuration,
-  query: String,
-) -> Request(String) {
-  make_request(config, "findNotes", [#("query", json.string(query))])
+pub fn find_notes_request(query: String) -> Request(String) {
+  make_request("findNotes", [#("query", json.string(query))])
 }
 
 /// Parses the response for a findNotes request.
@@ -139,11 +124,8 @@ fn field_data_decoder() -> decode.Decoder(FieldData) {
 }
 
 /// Gets the note info for a list of note IDs.
-pub fn notes_info_request(
-  config: Configuration,
-  ids: List(Int),
-) -> Request(String) {
-  make_request(config, "notesInfo", [#("notes", json.array(ids, json.int))])
+pub fn notes_info_request(ids: List(Int)) -> Request(String) {
+  make_request("notesInfo", [#("notes", json.array(ids, json.int))])
 }
 
 /// Parses the response for a notesInfo request.
@@ -156,11 +138,8 @@ pub fn notes_info_response(
 /// Gets the note info for a query.
 ///
 /// Use with `notes_info_response`.
-pub fn notes_info_query_request(
-  config: Configuration,
-  query: String,
-) -> Request(String) {
-  make_request(config, "notesInfo", [#("query", json.string(query))])
+pub fn notes_info_query_request(query: String) -> Request(String) {
+  make_request("notesInfo", [#("query", json.string(query))])
 }
 
 /// The source for a media file that can be added to an Anki deck.
@@ -248,12 +227,11 @@ fn encode_note(note: Note) -> Json {
 /// file a non-conflicting name.
 ///
 pub fn store_media_file_request(
-  config: Configuration,
   filename: String,
   source: MediaFileSource,
   delete_existing: Bool,
 ) -> Request(String) {
-  make_request(config, "storeMediaFile", [
+  make_request("storeMediaFile", [
     #("filename", json.string(filename)),
     #("deleteExisting", json.bool(delete_existing)),
     media_file_source_parameter(source),
@@ -269,8 +247,8 @@ pub fn store_media_file_response(
 
 /// Creates a note using the given deck and model, with the provided field values and tags.
 /// Returns the identifier of the created note created on success.
-pub fn add_note_request(config: Configuration, note: Note) -> Request(String) {
-  make_request(config, "addNote", [#("note", encode_note(note))])
+pub fn add_note_request(note: Note) -> Request(String) {
+  make_request("addNote", [#("note", encode_note(note))])
 }
 
 /// Parses the response for an addNote request.
