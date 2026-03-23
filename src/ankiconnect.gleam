@@ -150,11 +150,7 @@ pub type MediaFileSource {
 }
 
 pub type NoteMediaFile {
-  NewNoteMediaFile(
-    filename: String,
-    source: MediaFileSource,
-    fields: List(String),
-  )
+  NoteMediaFile(filename: String, source: MediaFileSource, fields: List(String))
 }
 
 pub type Note {
@@ -163,16 +159,6 @@ pub type Note {
     model_name: String,
     fields: Dict(String, String),
     tags: List(String),
-    audio: List(NoteMediaFile),
-    video: List(NoteMediaFile),
-    picture: List(NoteMediaFile),
-  )
-}
-
-pub type NoteFieldsUpdate {
-  NoteFieldsUpdate(
-    id: Int,
-    fields: Dict(String, String),
     audio: List(NoteMediaFile),
     video: List(NoteMediaFile),
     picture: List(NoteMediaFile),
@@ -213,21 +199,6 @@ fn encode_note(note: Note) -> Json {
   ])
 }
 
-fn encode_note_fields_update(note: NoteFieldsUpdate) -> Json {
-  let fields_json =
-    dict.to_list(note.fields)
-    |> list.map(fn(pair) { #(pair.0, json.string(pair.1)) })
-    |> json.object
-
-  json.object([
-    #("id", json.int(note.id)),
-    #("fields", fields_json),
-    #("audio", json.array(note.audio, encode_note_media_file)),
-    #("video", json.array(note.video, encode_note_media_file)),
-    #("picture", json.array(note.picture, encode_note_media_file)),
-  ])
-}
-
 /// Stores a file with the specified base64-encoded contents inside the media folder.
 ///
 /// Alternatively you can specify a absolute file path, or a url from where the
@@ -245,7 +216,7 @@ fn encode_note_fields_update(note: NoteFieldsUpdate) -> Json {
 pub fn store_media_file_request(
   filename: String,
   source: MediaFileSource,
-  delete_existing: Bool,
+  delete_existing delete_existing: Bool,
 ) -> Request(String) {
   make_request("storeMediaFile", [
     #("filename", json.string(filename)),
@@ -272,12 +243,24 @@ pub fn add_note_response(response: Response(String)) -> Result(Int, ActionError)
   handle_response(response, decode.int)
 }
 
-/// Modify the fields of an existing note. You can also include audio, video, or
-/// picture files which will be added to the note with an optional audio, video,
-/// or picture property.
-pub fn update_note_fields_request(note: NoteFieldsUpdate) -> Request(String) {
+/// Modify the fields of an existing note.
+pub fn update_note_fields_request(
+  id: Int,
+  fields: Dict(String, String),
+) -> Request(String) {
+  let fields_json =
+    dict.to_list(fields)
+    |> list.map(fn(pair) { #(pair.0, json.string(pair.1)) })
+    |> json.object
+
   make_request("updateNoteFields", [
-    #("note", encode_note_fields_update(note)),
+    #(
+      "note",
+      json.object([
+        #("id", json.int(id)),
+        #("fields", fields_json),
+      ]),
+    ),
   ])
 }
 

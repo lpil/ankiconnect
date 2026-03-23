@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.0 - 2026-03-23
 
 - Added `updateNoteFields` action support.
 

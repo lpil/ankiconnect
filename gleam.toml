@@ -1,5 +1,5 @@
 name = "ankiconnect"
-version = "1.0.0"
+version = "1.1.0"
 description = "A Gleam client for Anki Connect and Anki Connect Plus"
 licences = ["Apache-2.0"]
 
@@ -15,4 +15,3 @@ gleam_http = ">= 4.3.0 and < 5.0.0"
 
 [dev_dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
-gleam_httpc = ">= 5.0.0 and < 6.0.0"
