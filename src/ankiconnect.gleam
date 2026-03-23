@@ -50,7 +50,7 @@ fn handle_response(
 ) -> Result(t, ActionError) {
   let success = decode.at(["result"], decoder) |> decode.map(Ok)
   let failure = decode.at(["error"], decode.string) |> decode.map(Error)
-  let decoder = decode.one_of(success, [failure])
+  let decoder = decode.one_of(failure, [success])
   case json.parse(response.body, decoder) {
     Ok(Ok(value)) -> Ok(value)
     Ok(Error(error)) -> Error(AnkiActionFailed(error))
@@ -169,11 +169,21 @@ pub type Note {
   )
 }
 
+pub type NoteFieldsUpdate {
+  NoteFieldsUpdate(
+    id: Int,
+    fields: Dict(String, String),
+    audio: List(NoteMediaFile),
+    video: List(NoteMediaFile),
+    picture: List(NoteMediaFile),
+  )
+}
+
 fn encode_note_media_file(file: NoteMediaFile) -> Json {
   let source_param = media_file_source_parameter(file.source)
   json.object([
     #("filename", json.string(file.filename)),
-    #("fields", json.preprocessed_array(list.map(file.fields, json.string))),
+    #("fields", json.array(file.fields, json.string)),
     source_param,
   ])
 }
@@ -196,19 +206,25 @@ fn encode_note(note: Note) -> Json {
     #("deckName", json.string(note.deck_name)),
     #("modelName", json.string(note.model_name)),
     #("fields", fields_json),
-    #("tags", json.preprocessed_array(list.map(note.tags, json.string))),
-    #(
-      "audio",
-      json.preprocessed_array(list.map(note.audio, encode_note_media_file)),
-    ),
-    #(
-      "video",
-      json.preprocessed_array(list.map(note.video, encode_note_media_file)),
-    ),
-    #(
-      "picture",
-      json.preprocessed_array(list.map(note.picture, encode_note_media_file)),
-    ),
+    #("tags", json.array(note.tags, json.string)),
+    #("audio", json.array(note.audio, encode_note_media_file)),
+    #("video", json.array(note.video, encode_note_media_file)),
+    #("picture", json.array(note.picture, encode_note_media_file)),
+  ])
+}
+
+fn encode_note_fields_update(note: NoteFieldsUpdate) -> Json {
+  let fields_json =
+    dict.to_list(note.fields)
+    |> list.map(fn(pair) { #(pair.0, json.string(pair.1)) })
+    |> json.object
+
+  json.object([
+    #("id", json.int(note.id)),
+    #("fields", fields_json),
+    #("audio", json.array(note.audio, encode_note_media_file)),
+    #("video", json.array(note.video, encode_note_media_file)),
+    #("picture", json.array(note.picture, encode_note_media_file)),
   ])
 }
 
@@ -254,4 +270,20 @@ pub fn add_note_request(note: Note) -> Request(String) {
 /// Parses the response for an addNote request.
 pub fn add_note_response(response: Response(String)) -> Result(Int, ActionError) {
   handle_response(response, decode.int)
+}
+
+/// Modify the fields of an existing note. You can also include audio, video, or
+/// picture files which will be added to the note with an optional audio, video,
+/// or picture property.
+pub fn update_note_fields_request(note: NoteFieldsUpdate) -> Request(String) {
+  make_request("updateNoteFields", [
+    #("note", encode_note_fields_update(note)),
+  ])
+}
+
+/// Parses the response for an updateNoteFields request.
+pub fn update_note_fields_response(
+  response: Response(String),
+) -> Result(Nil, ActionError) {
+  handle_response(response, decode.success(Nil))
 }
